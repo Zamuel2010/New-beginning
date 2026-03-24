@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the Btg Xchange platform",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's unique ID" },
+        "email": { "type": "string", "format": "email", "description": "The user's email address" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "The user's role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user was created" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A fiat-crypto exchange transaction",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user who created the transaction" },
+        "type": { "type": "string", "enum": ["buy", "sell"], "description": "Transaction type" },
+        "amountFiat": { "type": "number", "description": "Amount in fiat currency" },
+        "amountCrypto": { "type": "number", "description": "Amount in crypto currency" },
+        "fiatCurrency": { "type": "string", "description": "Fiat currency code (e.g., USD)" },
+        "cryptoCurrency": { "type": "string", "description": "Crypto currency code (e.g., BTC)" },
+        "rate": { "type": "number", "description": "Exchange rate used" },
+        "status": { "type": "string", "enum": ["pending", "completed", "rejected"], "description": "Transaction status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the transaction was created" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the transaction was last updated" }
+      },
+      "required": ["userId", "type", "amountFiat", "amountCrypto", "fiatCurrency", "cryptoCurrency", "rate", "status", "createdAt", "updatedAt"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global platform settings",
+      "type": "object",
+      "properties": {
+        "buyMargin": { "type": "number", "description": "Margin percentage for buying crypto" },
+        "sellMargin": { "type": "number", "description": "Margin percentage for selling crypto" },
+        "baseRates": {
+          "type": "object",
+          "description": "Base exchange rates for crypto to USD",
+          "properties": {
+            "BTC": { "type": "number" },
+            "ETH": { "type": "number" },
+            "USDT": { "type": "number" }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["buyMargin", "sellMargin", "baseRates", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles and roles"
+    },
+    "transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Stores all exchange transactions"
+    },
+    "settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Settings" },
+      "description": "Stores global settings like exchange rates"
+    }
+  }
+}

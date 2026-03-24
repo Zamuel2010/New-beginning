@@ -1,0 +1,5 @@
+{
+  "name": "Remix: Btg Xchange",
+  "description": "A crypto fiat on/off-ramp platform inspired by fiatrouter.com",
+  "requestFramePermissions": []
+}
