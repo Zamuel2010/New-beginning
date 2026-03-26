@@ -26,7 +26,9 @@
         "rate": { "type": "number", "description": "Exchange rate used" },
         "status": { "type": "string", "enum": ["pending", "completed", "rejected"], "description": "Transaction status" },
         "createdAt": { "type": "string", "format": "date-time", "description": "When the transaction was created" },
-        "updatedAt": { "type": "string", "format": "date-time", "description": "When the transaction was last updated" }
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the transaction was last updated" },
+        "recipientWallet": { "type": "string", "description": "User's connected wallet address for buy transactions" },
+        "txHash": { "type": "string", "description": "Blockchain transaction hash" }
       },
       "required": ["userId", "type", "amountFiat", "amountCrypto", "fiatCurrency", "cryptoCurrency", "rate", "status", "createdAt", "updatedAt"]
     },

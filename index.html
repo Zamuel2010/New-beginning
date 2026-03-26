@@ -3,10 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>BTG Xchnage | Buy & Sell Crypto Easily</title>
+    <meta name="description" content="BTG Xchnage lets you buy and sell SOL, USDT, USDC safely and instantly. Manual verification and automatic crypto sending." />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://zyrohub.online" />
+    <meta property="og:title" content="BTG Xchnage | Buy & Sell Crypto Easily" />
+    <meta property="og:description" content="BTG Xchnage lets you buy and sell SOL, USDT, USDC safely and instantly. Manual verification and automatic crypto sending." />
+    <meta property="og:image" content="https://zyrohub.online/preview-image.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://zyrohub.online" />
+    <meta name="twitter:title" content="BTG Xchnage | Buy & Sell Crypto Easily" />
+    <meta name="twitter:description" content="BTG Xchnage lets you buy and sell SOL, USDT, USDC safely and instantly. Manual verification and automatic crypto sending." />
+    <meta name="twitter:image" content="https://zyrohub.online/preview-image.png" />
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.addEventListener('error', function(e) {
+        document.body.innerHTML += '<div style="color:red; z-index:9999; position:absolute; top:0; left:0; background:black; padding:20px; font-family:monospace;"><h3>Uncaught Error</h3>' + e.message + '<br>' + e.filename + ':' + e.lineno + '</div>';
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        document.body.innerHTML += '<div style="color:red; z-index:9999; position:absolute; top:0; left:0; background:black; padding:20px; font-family:monospace;"><h3>Unhandled Promise Rejection</h3>' + (e.reason && e.reason.stack ? e.reason.stack : e.reason) + '</div>';
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

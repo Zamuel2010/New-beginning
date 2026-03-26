@@ -48,7 +48,9 @@ export default function Login() {
             createdAt: serverTimestamp(),
           });
         } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
+          try {
+            handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
+          } catch (e) {}
         }
       }
       

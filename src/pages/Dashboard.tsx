@@ -19,20 +19,29 @@ export default function Dashboard() {
 
     const q = query(
       collection(db, 'transactions'),
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const txs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as any[];
+      
+      // Sort in memory to avoid requiring a composite index
+      txs.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis() || 0;
+        const timeB = b.createdAt?.toMillis() || 0;
+        return timeB - timeA;
+      });
+      
       setTransactions(txs);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'transactions');
       setLoading(false);
+      try {
+        handleFirestoreError(error, OperationType.GET, 'transactions');
+      } catch (e) {}
     });
 
     return () => unsubscribe();
@@ -116,6 +125,7 @@ export default function Dashboard() {
                       <TableHead className="text-zinc-400 font-medium">Fiat Amount</TableHead>
                       <TableHead className="text-zinc-400 font-medium">Crypto Amount</TableHead>
                       <TableHead className="text-zinc-400 font-medium">Rate</TableHead>
+                      <TableHead className="text-zinc-400 font-medium">Details</TableHead>
                       <TableHead className="text-right text-zinc-400 font-medium">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -143,6 +153,25 @@ export default function Dashboard() {
                         </TableCell>
                         <TableCell className="text-zinc-400 whitespace-nowrap">
                           {tx.rate.toLocaleString('en-US', { style: 'currency', currency: 'NGN' })}
+                        </TableCell>
+                        <TableCell className="text-xs text-zinc-400 max-w-[200px] truncate">
+                          {tx.type === 'buy' ? (
+                            <div className="flex flex-col gap-1">
+                              {tx.recipientWallet && (
+                                <span title={`Wallet: ${tx.recipientWallet}`} className="bg-black/30 px-2 py-1 rounded truncate">Wallet: <span className="text-zinc-200">{tx.recipientWallet}</span></span>
+                              )}
+                              {tx.txHash && (
+                                <span title={`TX Hash: ${tx.txHash}`} className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20 font-mono text-[10px] truncate">
+                                  TX: {tx.txHash}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              <span title={`Bank: ${tx.recipientBank}`} className="bg-black/30 px-2 py-1 rounded truncate">Bank: <span className="text-zinc-200">{tx.recipientBank}</span></span>
+                              <span title={`Account: ${tx.recipientAccount}`} className="bg-black/30 px-2 py-1 rounded truncate">Acct: <span className="text-zinc-200">{tx.recipientAccount}</span></span>
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           {getStatusBadge(tx.status)}

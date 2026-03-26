@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { Card, CardContent, CardFooter } from '../components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Label } from '../components/ui/label';
@@ -10,7 +10,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
-import { ArrowDownUp, Info, ShieldCheck, Zap, Wallet } from 'lucide-react';
+import { ArrowDownUp, Info, ShieldCheck, Zap, Wallet, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const DEFAULT_RATES = {
@@ -33,6 +33,46 @@ export default function Home() {
   const [recipientAccount, setRecipientAccount] = useState('');
   const [recipientBank, setRecipientBank] = useState('');
   const [recipientName, setRecipientName] = useState('');
+  const [connectedWallet, setConnectedWallet] = useState('');
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+
+  const connectWallet = async () => {
+    try {
+      if (cryptoCurrency === 'SOL') {
+        const solana = (window as any).solana || (window as any).phantom?.solana;
+        if (solana) {
+          const response = await solana.connect();
+          const publicKey = response.publicKey?.toString() || response.toString();
+          setConnectedWallet(publicKey);
+          toast.success('Phantom wallet connected!');
+        } else {
+          toast.error('Phantom wallet not found. Please install it.', {
+            action: {
+              label: 'Install',
+              onClick: () => window.open('https://phantom.app/', '_blank')
+            }
+          });
+        }
+      } else {
+        const ethereum = (window as any).ethereum;
+        if (ethereum) {
+          const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+          setConnectedWallet(accounts[0]);
+          toast.success('MetaMask connected!');
+        } else {
+          toast.error('MetaMask not found. Please install it.', {
+            action: {
+              label: 'Install',
+              onClick: () => window.open('https://metamask.io/', '_blank')
+            }
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error('Wallet connection error:', error);
+      toast.error(error.message || 'Failed to connect wallet');
+    }
+  };
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -93,6 +133,38 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const q = query(
+      collection(db, 'transactions'),
+      where('userId', '==', currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const txs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as any[];
+      
+      // Filter and sort in memory to avoid requiring a composite index
+      const completedTxs = txs
+        .filter(tx => tx.status === 'completed')
+        .sort((a, b) => {
+          const timeA = a.updatedAt?.toMillis() || 0;
+          const timeB = b.updatedAt?.toMillis() || 0;
+          return timeB - timeA;
+        })
+        .slice(0, 5);
+        
+      setRecentTransactions(completedTxs);
+    }, (error) => {
+      console.error("Error fetching recent transactions", error);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
   const baseRateUsd = liveRates[cryptoCurrency as keyof typeof liveRates] || DEFAULT_RATES[cryptoCurrency as keyof typeof DEFAULT_RATES];
   const usdToNgnRate = settings?.usdToNgnRate || 1500;
   const baseRateNgn = baseRateUsd * usdToNgnRate;
@@ -129,6 +201,11 @@ export default function Home() {
       return;
     }
 
+    if (type === 'buy' && !connectedWallet) {
+      toast.error('Please connect your wallet to receive crypto');
+      return;
+    }
+
     if (type === 'sell' && (!recipientAccount.trim() || !recipientBank.trim() || !recipientName.trim())) {
       toast.error('Please fill in all bank account details');
       return;
@@ -151,6 +228,7 @@ export default function Home() {
 
       if (type === 'buy') {
         transactionData.senderName = senderName;
+        transactionData.recipientWallet = connectedWallet;
       } else {
         transactionData.recipientAccount = recipientAccount;
         transactionData.recipientBank = recipientBank;
@@ -166,11 +244,16 @@ export default function Home() {
       setRecipientAccount('');
       setRecipientBank('');
       setRecipientName('');
+      setConnectedWallet('');
       
       navigate('/dashboard');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'transactions');
       toast.error('Failed to submit transaction');
+      try {
+        handleFirestoreError(error, OperationType.CREATE, 'transactions');
+      } catch (e) {
+        // Ignore
+      }
     } finally {
       setLoading(false);
     }
@@ -184,16 +267,33 @@ export default function Home() {
         transition={{ duration: 0.5 }}
         className="text-center mb-12"
       >
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-sm font-medium mb-6">
           <Zap className="w-4 h-4" />
-          <span>Lightning Fast Exchange</span>
+          <span>Beta V2 Live</span>
         </div>
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-6 bg-gradient-to-br from-white via-blue-100 to-blue-400 bg-clip-text text-transparent">
+        <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-gradient-to-br from-white via-indigo-200 to-indigo-500 bg-clip-text text-transparent">
           Crypto to Fiat,<br />Simplified.
         </h1>
         <p className="text-lg sm:text-xl text-zinc-400 max-w-xl mx-auto">
           The most secure and premium on/off-ramp platform for your digital assets.
         </p>
+      </motion.div>
+
+      {/* Live Ticker */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.05 }}
+        className="flex justify-center gap-4 mb-12 flex-wrap"
+      >
+        {['SOL', 'USDT', 'USDC'].map((crypto) => (
+          <div key={crypto} className="flex items-center gap-2 bg-[#0B0F19]/80 backdrop-blur-md border border-white/5 px-4 py-2 rounded-full shadow-lg">
+            <span className="text-zinc-400 font-medium text-sm">{crypto}/USD</span>
+            <span className="text-white font-bold text-sm">
+              ${liveRates[crypto as keyof typeof liveRates]?.toFixed(crypto === 'SOL' ? 2 : 4) || '...'}
+            </span>
+          </div>
+        ))}
       </motion.div>
 
       <motion.div 
@@ -204,11 +304,11 @@ export default function Home() {
       >
         <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[2rem] blur-xl opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
         <Card className="relative shadow-2xl border-white/10 bg-[#0B0F19]/80 backdrop-blur-2xl rounded-[2rem] overflow-hidden">
-          <Tabs value={type} onValueChange={(v) => setType(v as 'buy' | 'sell')} className="w-full">
-            <div className="p-2 bg-[#06080F]/50">
-              <TabsList className="grid w-full grid-cols-2 rounded-xl h-14 bg-black/40 p-1 border border-white/5">
-                <TabsTrigger value="buy" className="text-base rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all">Buy Crypto</TabsTrigger>
-                <TabsTrigger value="sell" className="text-base rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all">Sell Crypto</TabsTrigger>
+          <Tabs value={type} onValueChange={(v) => setType(v as 'buy' | 'sell')} className="w-full flex flex-col">
+            <div className="p-2 sm:p-3 bg-[#06080F]/50 border-b border-white/5">
+              <TabsList className="grid w-full grid-cols-2 rounded-xl h-14 bg-black/40 p-1.5">
+                <TabsTrigger value="buy" className="text-base rounded-lg !h-full data-active:bg-gradient-to-r data-active:from-indigo-600 data-active:to-indigo-500 data-active:text-white data-active:shadow-lg data-active:!border-transparent transition-all">Buy Crypto</TabsTrigger>
+                <TabsTrigger value="sell" className="text-base rounded-lg !h-full data-active:bg-gradient-to-r data-active:from-purple-600 data-active:to-purple-500 data-active:text-white data-active:shadow-lg data-active:!border-transparent transition-all">Sell Crypto</TabsTrigger>
               </TabsList>
             </div>
             
@@ -222,10 +322,13 @@ export default function Home() {
                       <button
                         key={crypto}
                         type="button"
-                        onClick={() => setCryptoCurrency(crypto)}
+                        onClick={() => {
+                          setCryptoCurrency(crypto);
+                          setConnectedWallet('');
+                        }}
                         className={`flex-1 py-3 sm:py-4 px-2 sm:px-4 rounded-xl font-medium text-sm sm:text-base transition-all duration-300 border ${
                           cryptoCurrency === crypto
-                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(79,70,229,0.4)] border-transparent'
+                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_20px_rgba(79,70,229,0.4)] border-transparent'
                             : 'bg-[#06080F]/60 text-zinc-400 border-white/5 hover:bg-white/5 hover:text-zinc-200'
                         }`}
                       >
@@ -327,6 +430,24 @@ export default function Home() {
                           required={type === 'buy'}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label className="text-zinc-400 font-medium ml-1">Your Receiving Wallet</Label>
+                        {connectedWallet ? (
+                          <div className="flex items-center justify-between h-14 bg-[#06080F]/80 border border-emerald-500/30 rounded-xl px-4 text-emerald-400 font-mono text-sm">
+                            <span className="truncate mr-2">{connectedWallet}</span>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setConnectedWallet('')} className="text-zinc-400 hover:text-white">Disconnect</Button>
+                          </div>
+                        ) : (
+                          <Button 
+                            type="button" 
+                            onClick={connectWallet}
+                            className="w-full h-14 bg-[#06080F]/80 border border-white/10 hover:bg-white/5 text-zinc-300 rounded-xl flex items-center justify-center gap-2 transition-all"
+                          >
+                            <Wallet className="w-5 h-5" />
+                            Connect {cryptoCurrency === 'SOL' ? 'Phantom' : 'MetaMask'} Wallet
+                          </Button>
+                        )}
+                      </div>
                     </motion.div>
                   )}
 
@@ -397,8 +518,8 @@ export default function Home() {
                   type="submit" 
                   className={`w-full h-16 text-lg font-semibold text-white rounded-2xl transition-all duration-300 ${
                     type === 'buy' 
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-[0_0_30px_rgba(37,99,235,0.4)]' 
-                      : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-[0_0_30px_rgba(79,70,229,0.4)]'
+                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-[0_0_30px_rgba(79,70,229,0.4)]' 
+                      : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 shadow-[0_0_30px_rgba(147,51,234,0.4)]'
                   }`} 
                   disabled={loading || numAmount <= 0}
                 >
@@ -414,16 +535,49 @@ export default function Home() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.3 }}
-        className="mt-8 mb-12 flex items-start gap-4 p-5 bg-blue-950/20 text-blue-200 rounded-2xl border border-blue-900/30 backdrop-blur-sm shadow-xl"
+        className="mt-8 mb-12 flex items-start gap-4 p-5 bg-indigo-950/20 text-indigo-200 rounded-2xl border border-indigo-900/30 backdrop-blur-sm shadow-xl"
       >
-        <div className="bg-blue-500/20 p-2 rounded-full">
-          <Info className="w-5 h-5 text-blue-400" />
+        <div className="bg-indigo-500/20 p-2 rounded-full">
+          <Info className="w-5 h-5 text-indigo-400" />
         </div>
         <div className="text-sm">
-          <p className="font-semibold mb-1 text-blue-300 text-base">How it works</p>
-          <p className="text-blue-200/70 leading-relaxed">After submitting your request, you will receive instructions on how to complete the payment. Your transaction will be processed once the payment is confirmed by our team.</p>
+          <p className="font-semibold mb-1 text-indigo-300 text-base">How it works</p>
+          <p className="text-indigo-200/70 leading-relaxed">After submitting your request, you will receive instructions on how to complete the payment. Your transaction will be processed once the payment is confirmed by our team.</p>
         </div>
       </motion.div>
+
+      {/* Recent Activity Feed */}
+      {recentTransactions.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="mb-12"
+        >
+          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-indigo-400" />
+            Recent Platform Activity
+          </h3>
+          <div className="space-y-3">
+            {recentTransactions.map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between p-4 bg-[#0B0F19]/60 backdrop-blur-sm border border-white/5 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${tx.type === 'buy' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                    <ArrowDownUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white capitalize">User {tx.type} {tx.cryptoCurrency}</p>
+                    <p className="text-xs text-zinc-500">Just now</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-white">{tx.amountCrypto} {tx.cryptoCurrency}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -84,7 +84,7 @@ service cloud.firestore {
     }
 
     function isValidTransaction(data) {
-      return hasOnlyAllowedFields(['userId', 'type', 'amountFiat', 'amountCrypto', 'fiatCurrency', 'cryptoCurrency', 'rate', 'status', 'createdAt', 'updatedAt', 'senderName', 'recipientAccount', 'recipientBank', 'recipientName']) &&
+      return hasOnlyAllowedFields(['userId', 'type', 'amountFiat', 'amountCrypto', 'fiatCurrency', 'cryptoCurrency', 'rate', 'status', 'createdAt', 'updatedAt', 'senderName', 'recipientAccount', 'recipientBank', 'recipientName', 'recipientWallet', 'txHash']) &&
              data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
              data.type in ['buy', 'sell'] &&
              data.amountFiat is number && data.amountFiat > 0 &&
@@ -97,6 +97,8 @@ service cloud.firestore {
              (!('recipientAccount' in data) || (data.recipientAccount is string && data.recipientAccount.size() <= 50)) &&
              (!('recipientBank' in data) || (data.recipientBank is string && data.recipientBank.size() <= 100)) &&
              (!('recipientName' in data) || (data.recipientName is string && data.recipientName.size() <= 100)) &&
+             (!('recipientWallet' in data) || (data.recipientWallet is string && data.recipientWallet.size() <= 100)) &&
+             (!('txHash' in data) || (data.txHash is string && data.txHash.size() <= 100)) &&
              data.createdAt is timestamp &&
              data.updatedAt is timestamp;
     }

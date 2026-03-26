@@ -34,7 +34,9 @@ export default function Register() {
           createdAt: serverTimestamp(),
         });
       } catch (error) {
-        handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
+        try {
+          handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
+        } catch (e) {}
       }
 
       toast.success('Account created! Please check your email to verify your account.');
@@ -65,7 +67,9 @@ export default function Register() {
             createdAt: serverTimestamp(),
           });
         } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
+          try {
+            handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}`);
+          } catch (e) {}
         }
       }
       

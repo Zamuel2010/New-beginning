@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../components/ui/dialog';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
-import { CheckCircle, XCircle, Clock, Settings, List, Users, LayoutDashboard, Ban, ShieldCheck, TrendingUp, Activity } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Settings, List, Users, LayoutDashboard, Ban, ShieldCheck, TrendingUp, Activity, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 
@@ -25,6 +25,9 @@ export default function AdminDashboard() {
   const [savingRates, setSavingRates] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedTx, setSelectedTx] = useState<any>(null);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const { currentUser } = useAuth();
+  const isSuperAdmin = currentUser?.email === 'samadeniji852@gmail.com';
 
   useEffect(() => {
     if (userRole !== 'admin') return;
@@ -39,8 +42,10 @@ export default function AdminDashboard() {
       setTransactions(txs);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'transactions');
       setLoading(false);
+      try {
+        handleFirestoreError(error, OperationType.GET, 'transactions');
+      } catch (e) {}
     });
 
     // Fetch users
@@ -52,7 +57,9 @@ export default function AdminDashboard() {
       }));
       setUsers(usersData);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'users');
+      try {
+        handleFirestoreError(error, OperationType.GET, 'users');
+      } catch (e) {}
     });
 
     // Fetch settings
@@ -69,7 +76,9 @@ export default function AdminDashboard() {
         });
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings/rates');
+      try {
+        handleFirestoreError(error, OperationType.GET, 'settings/rates');
+      } catch (e) {}
     });
 
     return () => {
@@ -79,16 +88,40 @@ export default function AdminDashboard() {
     };
   }, [userRole]);
 
-  const handleStatusUpdate = async (id: string, newStatus: string) => {
+  const handleStatusUpdate = async (tx: any, newStatus: string) => {
     try {
-      await updateDoc(doc(db, 'transactions', id), {
+      await updateDoc(doc(db, 'transactions', tx.id), {
         status: newStatus,
         updatedAt: serverTimestamp(),
       });
       toast.success(`Transaction marked as ${newStatus}`);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `transactions/${id}`);
-      toast.error('Failed to update transaction');
+    } catch (error: any) {
+      console.error('Status update error:', error);
+      toast.error(error.message || 'Failed to update transaction');
+    }
+  };
+
+  const handleAutoSend = async (tx: any) => {
+    try {
+      toast.info('Initiating automatic crypto transfer...');
+      const idToken = await auth.currentUser?.getIdToken();
+      
+      const response = await fetch('/api/admin/send-crypto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId: tx.id, idToken })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send crypto automatically');
+      }
+      
+      toast.success(`Crypto sent successfully! TX Hash: ${data.txHash}`);
+    } catch (error: any) {
+      console.error('Auto send error:', error);
+      toast.error(error.message || 'Failed to send crypto automatically');
     }
   };
 
@@ -100,10 +133,37 @@ export default function AdminDashboard() {
       });
       toast.success(`User has been ${newStatus}`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
       toast.error('Failed to update user status');
+      try {
+        handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      } catch (e) {}
     }
   };
+
+  const handleUserRoleUpdate = async (userId: string, currentRole: string) => {
+    if (!isSuperAdmin) {
+      toast.error('Only the super admin can change roles.');
+      return;
+    }
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        role: currentRole === 'admin' ? 'user' : 'admin'
+      });
+      toast.success(`User role updated to ${currentRole === 'admin' ? 'user' : 'admin'}`);
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast.error('Failed to update user role');
+      try {
+        handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+      } catch (e) {}
+    }
+  };
+
+  const filteredUsers = users.filter(user => 
+    user.email?.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+    user.uid?.toLowerCase().includes(userSearchQuery.toLowerCase())
+  );
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,8 +175,10 @@ export default function AdminDashboard() {
       });
       toast.success('Rates updated successfully');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'settings/rates');
       toast.error('Failed to update rates');
+      try {
+        handleFirestoreError(error, OperationType.UPDATE, 'settings/rates');
+      } catch (e) {}
     } finally {
       setSavingRates(false);
     }
@@ -202,12 +264,12 @@ export default function AdminDashboard() {
         </div>
       </motion.div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4 bg-[#06080F] border border-white/10 p-1 rounded-xl h-14">
-          <TabsTrigger value="overview" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all"><LayoutDashboard className="w-4 h-4 hidden sm:block" /> Overview</TabsTrigger>
-          <TabsTrigger value="transactions" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all"><List className="w-4 h-4 hidden sm:block" /> Orders {pendingCount > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingCount}</span>}</TabsTrigger>
-          <TabsTrigger value="users" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all"><Users className="w-4 h-4 hidden sm:block" /> Users</TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all"><Settings className="w-4 h-4 hidden sm:block" /> Settings</TabsTrigger>
+      <Tabs defaultValue="overview" className="w-full flex flex-col">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full max-w-2xl bg-[#06080F] border border-white/10 p-1 rounded-xl h-auto sm:h-14 gap-1 sm:gap-0">
+          <TabsTrigger value="overview" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all py-2 sm:py-0"><LayoutDashboard className="w-4 h-4 hidden sm:block" /> Overview</TabsTrigger>
+          <TabsTrigger value="transactions" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all py-2 sm:py-0"><List className="w-4 h-4 hidden sm:block" /> Orders {pendingCount > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingCount}</span>}</TabsTrigger>
+          <TabsTrigger value="users" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all py-2 sm:py-0"><Users className="w-4 h-4 hidden sm:block" /> Users</TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all py-2 sm:py-0"><Settings className="w-4 h-4 hidden sm:block" /> Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-8">
@@ -342,7 +404,17 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell className="text-xs text-zinc-400 max-w-[250px] truncate">
                             {tx.type === 'buy' ? (
-                              <span title={`Sender: ${tx.senderName}`} className="bg-black/30 px-2 py-1 rounded">Sender: <span className="text-zinc-200">{tx.senderName}</span></span>
+                              <div className="flex flex-col gap-1">
+                                <span title={`Sender: ${tx.senderName}`} className="bg-black/30 px-2 py-1 rounded truncate">Sender: <span className="text-zinc-200">{tx.senderName}</span></span>
+                                {tx.recipientWallet && (
+                                  <span title={`Wallet: ${tx.recipientWallet}`} className="bg-black/30 px-2 py-1 rounded truncate">Wallet: <span className="text-zinc-200">{tx.recipientWallet}</span></span>
+                                )}
+                                {tx.txHash && (
+                                  <span title={`TX Hash: ${tx.txHash}`} className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20 font-mono text-[10px] truncate">
+                                    TX: {tx.txHash}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <span title={`${tx.recipientBank} - ${tx.recipientAccount} (${tx.recipientName})`} className="bg-black/30 px-2 py-1 rounded block truncate">
                                 <span className="text-zinc-200">{tx.recipientBank}</span> - {tx.recipientAccount}
@@ -356,10 +428,8 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Dialog>
-                              <DialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 mr-2" onClick={() => setSelectedTx(tx)}>
-                                  Details
-                                </Button>
+                              <DialogTrigger render={<Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 mr-2" onClick={() => setSelectedTx(tx)} />}>
+                                Details
                               </DialogTrigger>
                               <DialogContent className="bg-[#0B0F19] border-white/10 text-white sm:max-w-[425px]">
                                 <DialogHeader>
@@ -390,7 +460,15 @@ export default function AdminDashboard() {
                                       <span className="text-zinc-400 text-sm font-medium">Info:</span>
                                       <div className="col-span-3 text-sm bg-black/30 p-3 rounded-lg border border-white/5">
                                         {selectedTx.type === 'buy' ? (
-                                          <p>Sender Name: <span className="text-white font-medium">{selectedTx.senderName}</span></p>
+                                          <>
+                                            <p>Sender Name: <span className="text-white font-medium">{selectedTx.senderName}</span></p>
+                                            {selectedTx.recipientWallet && (
+                                              <p className="mt-2">Receiving Wallet: <br/><span className="text-white font-mono text-xs break-all">{selectedTx.recipientWallet}</span></p>
+                                            )}
+                                            {selectedTx.txHash && (
+                                              <p className="mt-2">TX Hash: <br/><span className="text-emerald-400 font-mono text-xs break-all">{selectedTx.txHash}</span></p>
+                                            )}
+                                          </>
                                         ) : (
                                           <>
                                             <p>Bank: <span className="text-white font-medium">{selectedTx.recipientBank}</span></p>
@@ -406,10 +484,15 @@ export default function AdminDashboard() {
                             </Dialog>
                             {tx.status === 'pending' && (
                               <div className="inline-flex justify-end gap-2">
-                                <Button size="sm" variant="outline" className="text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors" onClick={() => handleStatusUpdate(tx.id, 'completed')}>
+                                <Button size="sm" variant="outline" className="text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors" onClick={() => handleStatusUpdate(tx, 'completed')}>
                                   <CheckCircle className="w-4 h-4 mr-1" /> Approve
                                 </Button>
-                                <Button size="sm" variant="outline" className="text-red-400 border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 transition-colors" onClick={() => handleStatusUpdate(tx.id, 'rejected')}>
+                                {tx.type === 'buy' && (
+                                  <Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 hover:text-blue-300 transition-colors" onClick={() => handleAutoSend(tx)}>
+                                    <Wallet className="w-4 h-4 mr-1" /> Auto Send
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="outline" className="text-red-400 border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 transition-colors" onClick={() => handleStatusUpdate(tx, 'rejected')}>
                                   <XCircle className="w-4 h-4 mr-1" /> Reject
                                 </Button>
                               </div>
@@ -427,14 +510,24 @@ export default function AdminDashboard() {
 
         <TabsContent value="users" className="mt-8">
           <Card className="border-white/10 bg-[#0B0F19]/90 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden">
-            <CardHeader className="border-b border-white/5 bg-black/20">
-              <CardTitle className="text-white">User Management</CardTitle>
-              <CardDescription className="text-zinc-400">
-                View all registered users and manage their access.
-              </CardDescription>
+            <CardHeader className="border-b border-white/5 bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-white">User Management</CardTitle>
+                <CardDescription className="text-zinc-400">
+                  View all registered users and manage their access.
+                </CardDescription>
+              </div>
+              <div className="w-full sm:w-64">
+                <Input 
+                  placeholder="Search by email or ID..." 
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  className="bg-black/40 border-white/10 text-white"
+                />
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              {users.length === 0 ? (
+              {filteredUsers.length === 0 ? (
                 <div className="text-center py-16 text-zinc-500">No users found.</div>
               ) : (
                 <div className="overflow-x-auto">
@@ -450,7 +543,7 @@ export default function AdminDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.map((user) => (
+                      {filteredUsers.map((user) => (
                         <TableRow key={user.id} className="border-white/5 hover:bg-white/5 transition-colors">
                           <TableCell className="text-zinc-400 text-xs whitespace-nowrap">
                             {user.createdAt ? format(user.createdAt.toDate(), 'MMM d, yyyy') : 'N/A'}
@@ -475,10 +568,8 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Dialog>
-                              <DialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 mr-2" onClick={() => setSelectedUser(user)}>
-                                  View Details
-                                </Button>
+                              <DialogTrigger render={<Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 mr-2" onClick={() => setSelectedUser(user)} />}>
+                                View Details
                               </DialogTrigger>
                               <DialogContent className="bg-[#0B0F19] border-white/10 text-white sm:max-w-[425px]">
                                 <DialogHeader>
@@ -540,6 +631,22 @@ export default function AdminDashboard() {
                                       {selectedUser?.status === 'banned' ? 'Unban User' : 'Ban User'}
                                     </Button>
                                   )}
+                                  {isSuperAdmin && selectedUser?.email !== 'samadeniji852@gmail.com' && (
+                                    <Button 
+                                      variant="outline" 
+                                      className={selectedUser?.role === 'admin' 
+                                        ? "text-orange-400 border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20" 
+                                        : "text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20"
+                                      }
+                                      onClick={() => {
+                                        handleUserRoleUpdate(selectedUser.id, selectedUser.role);
+                                        setSelectedUser({...selectedUser, role: selectedUser.role === 'admin' ? 'user' : 'admin'});
+                                      }}
+                                    >
+                                      <ShieldCheck className="w-4 h-4 mr-1" />
+                                      {selectedUser?.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                                    </Button>
+                                  )}
                                 </DialogFooter>
                               </DialogContent>
                             </Dialog>
@@ -555,6 +662,20 @@ export default function AdminDashboard() {
                               >
                                 {user.status === 'banned' ? <CheckCircle className="w-4 h-4 mr-1" /> : <Ban className="w-4 h-4 mr-1" />}
                                 {user.status === 'banned' ? 'Unban' : 'Ban'}
+                              </Button>
+                            )}
+                            {isSuperAdmin && user.email !== 'samadeniji852@gmail.com' && (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className={user.role === 'admin' 
+                                  ? "text-orange-400 border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 ml-2" 
+                                  : "text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 ml-2"
+                                }
+                                onClick={() => handleUserRoleUpdate(user.id, user.role)}
+                              >
+                                <ShieldCheck className="w-4 h-4 mr-1" />
+                                {user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
                               </Button>
                             )}
                           </TableCell>
