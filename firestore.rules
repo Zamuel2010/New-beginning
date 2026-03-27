@@ -11,7 +11,11 @@ service cloud.firestore {
     //   - uid: string (required) - user ID
     //   - email: string (required) - user email
     //   - role: string (required) - 'user' or 'admin'
+    //   - status: string (optional) - 'active' or 'banned'
+    //   - displayName: string (optional) - user display name
+    //   - walletAddress: string (optional) - Solana wallet address
     //   - createdAt: timestamp (required) - creation time
+    //   - updatedAt: timestamp (optional) - update time
     //
     // Collection: transactions
     // Document ID: auto-generated
@@ -75,12 +79,15 @@ service cloud.firestore {
     // Domain Validators
     // ===============================================================
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'role', 'status', 'createdAt']) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'role', 'status', 'createdAt', 'updatedAt', 'displayName', 'walletAddress']) &&
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
              data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
              data.role in ['user', 'admin'] &&
              (!('status' in data) || data.status in ['active', 'banned']) &&
-             data.createdAt is timestamp;
+             data.createdAt is timestamp &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('walletAddress' in data) || (data.walletAddress is string && data.walletAddress.size() < 100));
     }
 
     function isValidTransaction(data) {

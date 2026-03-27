@@ -22,6 +22,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import XPremium from './pages/XPremium';
+import Profile from './pages/Profile';
 import { PhantomProvider, darkTheme, AddressType } from "@phantom/react-sdk";
 
 // Solana Wallet Adapter Imports
@@ -209,6 +210,11 @@ export default function App() {
                       <Route path="premium" element={
                         <ProtectedRoute>
                           <XPremium />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="profile" element={
+                        <ProtectedRoute>
+                          <Profile />
                         </ProtectedRoute>
                       } />
                       {/* Phantom Auth Callback Route */}

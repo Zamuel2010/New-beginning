@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
-import { ArrowRightLeft, LogOut, LayoutDashboard, Settings, Menu, X, Crown } from 'lucide-react';
+import { ArrowRightLeft, LogOut, LayoutDashboard, Settings, Menu, X, Crown, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
@@ -57,6 +57,12 @@ export default function Layout() {
                   <Button variant="ghost" size="sm" className="gap-2 text-zinc-300 hover:text-white hover:bg-white/5">
                     <LayoutDashboard className="w-4 h-4" />
                     Dashboard
+                  </Button>
+                </Link>
+                <Link to="/profile">
+                  <Button variant="ghost" size="sm" className="gap-2 text-zinc-300 hover:text-white hover:bg-white/5">
+                    <User className="w-4 h-4" />
+                    Profile
                   </Button>
                 </Link>
                 {userRole === 'admin' && (
@@ -141,6 +147,13 @@ export default function Layout() {
                     <Button variant="ghost" className="w-full justify-start gap-3 text-zinc-300 hover:text-white hover:bg-white/5 h-12 rounded-xl">
                       <LayoutDashboard className="w-5 h-5" />
                       Dashboard
+                    </Button>
+                  </Link>
+
+                  <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-start gap-3 text-zinc-300 hover:text-white hover:bg-white/5 h-12 rounded-xl">
+                      <User className="w-5 h-5" />
+                      My Profile
                     </Button>
                   </Link>
 

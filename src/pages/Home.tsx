@@ -9,11 +9,9 @@ import { Label } from '../components/ui/label';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
-import { ArrowDownUp, Info, ShieldCheck, Zap, Wallet, Activity } from 'lucide-react';
+import { ArrowDownUp, Info, ShieldCheck, Zap, Wallet, Activity, Save, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useUnifiedWalletContext } from '@jup-ag/wallet-adapter';
-import { useModal as usePhantomModal, usePhantom } from "@phantom/react-sdk";
+import { updateDoc } from 'firebase/firestore';
 
 const DEFAULT_RATES = {
   SOL: 150,
@@ -22,7 +20,7 @@ const DEFAULT_RATES = {
 };
 
 export default function Home() {
-  const { currentUser } = useAuth();
+  const { currentUser, userData, refreshUserData } = useAuth();
   const navigate = useNavigate();
   const [type, setType] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState<string>('');
@@ -35,33 +33,45 @@ export default function Home() {
   const [recipientAccount, setRecipientAccount] = useState('');
   const [recipientBank, setRecipientBank] = useState('');
   const [recipientName, setRecipientName] = useState('');
-  const [connectedWallet, setConnectedWallet] = useState('');
+  const [manualWallet, setManualWallet] = useState('');
+  const [isEditingWallet, setIsEditingWallet] = useState(false);
+  const [isSavingWallet, setIsSavingWallet] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
 
-  const { publicKey, wallet, disconnect, connect, select } = useWallet();
-  const { setShowModal } = useUnifiedWalletContext();
-  const { open: openPhantomModal } = usePhantomModal();
-  const { isConnected: isPhantomConnected, user: phantomUser } = usePhantom();
-
   useEffect(() => {
-    if (publicKey) {
-      setConnectedWallet(publicKey.toString());
-    } else if (isPhantomConnected && phantomUser?.addresses && phantomUser.addresses.length > 0) {
-      setConnectedWallet(phantomUser.addresses[0].address);
+    if (userData?.walletAddress) {
+      setManualWallet(userData.walletAddress);
+      setIsEditingWallet(false);
     } else {
-      setConnectedWallet('');
+      setIsEditingWallet(true);
     }
-  }, [publicKey, isPhantomConnected, phantomUser]);
+  }, [userData]);
 
-  const connectWallet = async () => {
+  const handleSaveWallet = async () => {
+    if (!currentUser) {
+      toast.error('Please log in to save your wallet');
+      return;
+    }
+    if (!manualWallet.trim()) {
+      toast.error('Please enter a valid wallet address');
+      return;
+    }
+
+    setIsSavingWallet(true);
     try {
-      // Use the official Phantom SDK Modal
-      // This is the correct way to trigger the connection flow
-      // On mobile, it will show the modal which allows jumping to the Phantom app
-      openPhantomModal();
-    } catch (error: any) {
-      console.error('Wallet connection error:', error);
-      toast.error(error.message || 'Failed to connect wallet');
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userDocRef, {
+        walletAddress: manualWallet.trim(),
+        updatedAt: new Date(),
+      });
+      await refreshUserData();
+      setIsEditingWallet(false);
+      toast.success('Wallet address saved successfully');
+    } catch (error) {
+      console.error('Error saving wallet:', error);
+      toast.error('Failed to save wallet address');
+    } finally {
+      setIsSavingWallet(false);
     }
   };
 
@@ -192,8 +202,8 @@ export default function Home() {
       return;
     }
 
-    if (type === 'buy' && !connectedWallet) {
-      toast.error('Please connect your wallet to receive crypto');
+    if (type === 'buy' && !manualWallet.trim()) {
+      toast.error('Please provide a wallet address to receive crypto');
       return;
     }
 
@@ -219,7 +229,7 @@ export default function Home() {
 
       if (type === 'buy') {
         transactionData.senderName = senderName;
-        transactionData.recipientWallet = connectedWallet;
+        transactionData.recipientWallet = manualWallet.trim();
       } else {
         transactionData.recipientAccount = recipientAccount;
         transactionData.recipientBank = recipientBank;
@@ -235,7 +245,6 @@ export default function Home() {
       setRecipientAccount('');
       setRecipientBank('');
       setRecipientName('');
-      setConnectedWallet('');
       
       navigate('/dashboard');
     } catch (error) {
@@ -315,7 +324,6 @@ export default function Home() {
                         type="button"
                         onClick={() => {
                           setCryptoCurrency(crypto);
-                          setConnectedWallet('');
                         }}
                         className={`flex-1 py-3 sm:py-4 px-2 sm:px-4 rounded-xl font-medium text-sm sm:text-base transition-all duration-300 border ${
                           cryptoCurrency === crypto
@@ -423,21 +431,49 @@ export default function Home() {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-zinc-400 font-medium ml-1">Your Receiving Wallet</Label>
-                        {connectedWallet ? (
-                          <div className="flex items-center justify-between h-14 bg-[#06080F]/80 border border-emerald-500/30 rounded-xl px-4 text-emerald-400 font-mono text-sm">
-                            <span className="truncate mr-2">{connectedWallet}</span>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setConnectedWallet('')} className="text-zinc-400 hover:text-white">Disconnect</Button>
-                          </div>
-                        ) : (
-                          <Button 
-                            type="button" 
-                            onClick={connectWallet}
-                            className="w-full h-14 bg-[#06080F]/80 border border-white/10 hover:bg-white/5 text-zinc-300 rounded-xl flex items-center justify-center gap-2 transition-all"
-                          >
-                            <Wallet className="w-5 h-5" />
-                            Connect Phantom Wallet
-                          </Button>
-                        )}
+                        <div className="space-y-3">
+                          {isEditingWallet ? (
+                            <div className="flex gap-2">
+                              <Input 
+                                type="text" 
+                                placeholder="Enter your Solana wallet address" 
+                                value={manualWallet}
+                                onChange={(e) => setManualWallet(e.target.value)}
+                                className="h-14 bg-[#06080F]/80 border-white/10 focus-visible:ring-indigo-500/50 rounded-xl px-4 font-mono text-sm flex-1"
+                              />
+                              <Button 
+                                type="button" 
+                                onClick={handleSaveWallet}
+                                disabled={isSavingWallet}
+                                className="h-14 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20"
+                              >
+                                {isSavingWallet ? (
+                                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                  <Save className="w-5 h-5" />
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between h-14 bg-[#06080F]/80 border border-indigo-500/30 rounded-xl px-4 text-indigo-400 font-mono text-sm group">
+                              <span className="truncate mr-2">{manualWallet}</span>
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setIsEditingWallet(true)} 
+                                className="text-zinc-400 hover:text-white hover:bg-white/5"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                          {!userData?.walletAddress && isEditingWallet && (
+                            <p className="text-[10px] text-zinc-500 italic ml-1">
+                              Enter your wallet address manually and click save.
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </motion.div>
                   )}
