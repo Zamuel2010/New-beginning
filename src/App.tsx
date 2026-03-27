@@ -117,6 +117,10 @@ export default function App() {
       }
 
       console.error('Unhandled Promise Rejection:', event.reason);
+      // Log more details if available
+      if (event.reason instanceof Error) {
+        console.error('Error Stack:', event.reason.stack);
+      }
     };
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection);

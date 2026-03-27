@@ -41,10 +41,7 @@ export default function Home() {
   const { publicKey, wallet, disconnect, connect, select } = useWallet();
   const { setShowModal } = useUnifiedWalletContext();
   const { open: openPhantomModal } = usePhantomModal();
-  const phantom = usePhantom() as any;
-  const isPhantomConnected = phantom.isConnected;
-  const phantomUser = phantom.user;
-  const connectPhantom = phantom.connect;
+  const { isConnected: isPhantomConnected, user: phantomUser } = usePhantom();
 
   useEffect(() => {
     if (publicKey) {
@@ -58,16 +55,13 @@ export default function Home() {
 
   const connectWallet = async () => {
     try {
-      // Use the official Phantom SDK connection method
-      // This handles the deep link flow on mobile (Safari/Chrome -> Phantom -> Safari/Chrome)
-      // and the standard extension connection on desktop.
-      await connectPhantom();
+      // Use the official Phantom SDK Modal
+      // This is the correct way to trigger the connection flow
+      // On mobile, it will show the modal which allows jumping to the Phantom app
+      openPhantomModal();
     } catch (error: any) {
       console.error('Wallet connection error:', error);
-      // Don't show toast for user cancellation
-      if (!error.message?.includes('User rejected')) {
-        toast.error(error.message || 'Failed to connect wallet');
-      }
+      toast.error(error.message || 'Failed to connect wallet');
     }
   };
 
