@@ -7,11 +7,13 @@ import { Card, CardContent, CardFooter } from '../components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Label } from '../components/ui/label';
 import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { ArrowDownUp, Info, ShieldCheck, Zap, Wallet, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useUnifiedWalletContext } from '@jup-ag/wallet-adapter';
+import { useModal as usePhantomModal, usePhantom } from "@phantom/react-sdk";
 
 const DEFAULT_RATES = {
   SOL: 150,
@@ -36,38 +38,40 @@ export default function Home() {
   const [connectedWallet, setConnectedWallet] = useState('');
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
 
+  const { publicKey, wallet, disconnect, connect, select } = useWallet();
+  const { setShowModal } = useUnifiedWalletContext();
+  const { open: openPhantomModal } = usePhantomModal();
+  const { isConnected: isPhantomConnected, user: phantomUser } = usePhantom();
+
+  useEffect(() => {
+    if (publicKey) {
+      setConnectedWallet(publicKey.toString());
+    } else if (isPhantomConnected && phantomUser?.addresses && phantomUser.addresses.length > 0) {
+      setConnectedWallet(phantomUser.addresses[0].address);
+    } else {
+      setConnectedWallet('');
+    }
+  }, [publicKey, isPhantomConnected, phantomUser]);
+
   const connectWallet = async () => {
+    // Check if we are on mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    // Check if we are already inside a wallet's in-app browser (like Phantom or Solflare)
+    const isProviderFound = !!(window as any).solana || !!(window as any).phantom;
+
+    if (isMobile && !isProviderFound) {
+      // Redirect to Phantom's in-app browser using a Universal Link
+      // This is the most reliable way to "jump" from Safari/Chrome into the Phantom App
+      const currentUrl = window.location.href;
+      const phantomBrowseUrl = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(currentUrl)}`;
+      window.location.href = phantomBrowseUrl;
+      return;
+    }
+
     try {
-      if (cryptoCurrency === 'SOL') {
-        const solana = (window as any).solana || (window as any).phantom?.solana;
-        if (solana) {
-          const response = await solana.connect();
-          const publicKey = response.publicKey?.toString() || response.toString();
-          setConnectedWallet(publicKey);
-          toast.success('Phantom wallet connected!');
-        } else {
-          toast.error('Phantom wallet not found. Please install it.', {
-            action: {
-              label: 'Install',
-              onClick: () => window.open('https://phantom.app/', '_blank')
-            }
-          });
-        }
-      } else {
-        const ethereum = (window as any).ethereum;
-        if (ethereum) {
-          const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-          setConnectedWallet(accounts[0]);
-          toast.success('MetaMask connected!');
-        } else {
-          toast.error('MetaMask not found. Please install it.', {
-            action: {
-              label: 'Install',
-              onClick: () => window.open('https://metamask.io/', '_blank')
-            }
-          });
-        }
-      }
+      // Use the official Phantom SDK Modal
+      openPhantomModal();
     } catch (error: any) {
       console.error('Wallet connection error:', error);
       toast.error(error.message || 'Failed to connect wallet');
@@ -444,7 +448,7 @@ export default function Home() {
                             className="w-full h-14 bg-[#06080F]/80 border border-white/10 hover:bg-white/5 text-zinc-300 rounded-xl flex items-center justify-center gap-2 transition-all"
                           >
                             <Wallet className="w-5 h-5" />
-                            Connect {cryptoCurrency === 'SOL' ? 'Phantom' : 'MetaMask'} Wallet
+                            Connect Wallet
                           </Button>
                         )}
                       </div>
@@ -465,8 +469,8 @@ export default function Home() {
                         </p>
                         <div className="text-sm break-all font-mono text-white bg-black/30 p-4 rounded-xl border border-white/5 shadow-inner">
                           {cryptoCurrency === 'SOL' && '2MYX1kp5F3v5CQVMedm9S2npC3AmvLCEqbAj6sjc4cTD'}
-                          {cryptoCurrency === 'USDT' && '0x80a4b52919e5799da523b8f96f545d43171319c8 (BEP20)'}
-                          {cryptoCurrency === 'USDC' && '0x80a4b52919e5799da523b8f96f545d43171319c8 (BEP20)'}
+                          {cryptoCurrency === 'USDT' && '2MYX1kp5F3v5CQVMedm9S2npC3AmvLCEqbAj6sjc4cTD (Solana SPL)'}
+                          {cryptoCurrency === 'USDC' && '2MYX1kp5F3v5CQVMedm9S2npC3AmvLCEqbAj6sjc4cTD (Solana SPL)'}
                         </div>
                       </div>
                       <div className="space-y-4 bg-[#06080F]/40 p-5 rounded-2xl border border-white/5">

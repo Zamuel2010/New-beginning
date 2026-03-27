@@ -266,10 +266,10 @@ export default function AdminDashboard() {
 
       <Tabs defaultValue="overview" className="w-full flex flex-col">
         <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full max-w-2xl bg-[#06080F] border border-white/10 p-1 rounded-xl h-auto sm:h-14 gap-1 sm:gap-0">
-          <TabsTrigger value="overview" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all py-2 sm:py-0"><LayoutDashboard className="w-4 h-4 hidden sm:block" /> Overview</TabsTrigger>
-          <TabsTrigger value="transactions" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all py-2 sm:py-0"><List className="w-4 h-4 hidden sm:block" /> Orders {pendingCount > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingCount}</span>}</TabsTrigger>
-          <TabsTrigger value="users" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all py-2 sm:py-0"><Users className="w-4 h-4 hidden sm:block" /> Users</TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white transition-all py-2 sm:py-0"><Settings className="w-4 h-4 hidden sm:block" /> Settings</TabsTrigger>
+          <TabsTrigger value="overview" className="gap-2 rounded-lg data-active:bg-gradient-to-r data-active:from-blue-600 data-active:to-indigo-600 data-active:text-white transition-all py-2 sm:py-0"><LayoutDashboard className="w-4 h-4 hidden sm:block" /> Overview</TabsTrigger>
+          <TabsTrigger value="transactions" className="gap-2 rounded-lg data-active:bg-gradient-to-r data-active:from-blue-600 data-active:to-indigo-600 data-active:text-white transition-all py-2 sm:py-0"><List className="w-4 h-4 hidden sm:block" /> Orders {pendingCount > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingCount}</span>}</TabsTrigger>
+          <TabsTrigger value="users" className="gap-2 rounded-lg data-active:bg-gradient-to-r data-active:from-blue-600 data-active:to-indigo-600 data-active:text-white transition-all py-2 sm:py-0"><Users className="w-4 h-4 hidden sm:block" /> Users</TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2 rounded-lg data-active:bg-gradient-to-r data-active:from-blue-600 data-active:to-indigo-600 data-active:text-white transition-all py-2 sm:py-0"><Settings className="w-4 h-4 hidden sm:block" /> Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-8">
@@ -347,12 +347,12 @@ export default function AdminDashboard() {
                 <span className="text-white tracking-wider">2MYX1kp5F3v5CQVMedm9S2npC3AmvLCEqbAj6sjc4cTD</span>
               </div>
               <div className="flex justify-between items-center bg-black/30 p-3 rounded-xl border border-white/5">
-                <span className="font-sans font-medium text-zinc-400">USDT (BEP20)</span>
-                <span className="text-white tracking-wider">0x80a4b52919e5799da523b8f96f545d43171319c8</span>
+                <span className="font-sans font-medium text-zinc-400">USDT (Solana SPL)</span>
+                <span className="text-white tracking-wider">2MYX1kp5F3v5CQVMedm9S2npC3AmvLCEqbAj6sjc4cTD</span>
               </div>
               <div className="flex justify-between items-center bg-black/30 p-3 rounded-xl border border-white/5">
-                <span className="font-sans font-medium text-zinc-400">USDC (BEP20)</span>
-                <span className="text-white tracking-wider">0x80a4b52919e5799da523b8f96f545d43171319c8</span>
+                <span className="font-sans font-medium text-zinc-400">USDC (Solana SPL)</span>
+                <span className="text-white tracking-wider">2MYX1kp5F3v5CQVMedm9S2npC3AmvLCEqbAj6sjc4cTD</span>
               </div>
             </div>
           </div>
@@ -428,7 +428,12 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Dialog>
-                              <DialogTrigger render={<Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 mr-2" onClick={() => setSelectedTx(tx)} />}>
+                              <DialogTrigger 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 mr-2" 
+                                onClick={() => setSelectedTx(tx)}
+                              >
                                 Details
                               </DialogTrigger>
                               <DialogContent className="bg-[#0B0F19] border-white/10 text-white sm:max-w-[425px]">
@@ -568,7 +573,12 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Dialog>
-                              <DialogTrigger render={<Button size="sm" variant="outline" className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 mr-2" onClick={() => setSelectedUser(user)} />}>
+                              <DialogTrigger 
+                                size="sm" 
+                                variant="outline" 
+                                className="text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 mr-2" 
+                                onClick={() => setSelectedUser(user)}
+                              >
                                 View Details
                               </DialogTrigger>
                               <DialogContent className="bg-[#0B0F19] border-white/10 text-white sm:max-w-[425px]">

@@ -119,7 +119,7 @@ export default function Layout() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 bottom-0 w-[280px] bg-[#0B0F19] border-l border-white/5 z-50 md:hidden p-6 pt-20 flex flex-col gap-4 shadow-2xl"
+              className="fixed right-0 top-0 bottom-0 w-[280px] bg-[#0B0F19] opacity-100 border-l border-white/5 z-50 md:hidden p-6 pt-20 flex flex-col gap-4 shadow-2xl"
             >
               {currentUser ? (
                 <>
