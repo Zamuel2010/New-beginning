@@ -41,7 +41,10 @@ export default function Home() {
   const { publicKey, wallet, disconnect, connect, select } = useWallet();
   const { setShowModal } = useUnifiedWalletContext();
   const { open: openPhantomModal } = usePhantomModal();
-  const { isConnected: isPhantomConnected, user: phantomUser } = usePhantom();
+  const phantom = usePhantom() as any;
+  const isPhantomConnected = phantom.isConnected;
+  const phantomUser = phantom.user;
+  const connectPhantom = phantom.connect;
 
   useEffect(() => {
     if (publicKey) {
@@ -54,32 +57,17 @@ export default function Home() {
   }, [publicKey, isPhantomConnected, phantomUser]);
 
   const connectWallet = async () => {
-    // Check if we are on mobile
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    // Check if we are already inside a wallet's in-app browser (like Phantom or Solflare)
-    const isProviderFound = !!(window as any).solana || !!(window as any).phantom;
-
-    if (isMobile && !isProviderFound) {
-      // Redirect to Phantom's in-app browser using a Universal Link
-      // This is the most reliable way to "jump" from Safari/Chrome into the Phantom App
-      const currentUrl = window.location.href;
-      // Using the browse universal link to open the site inside Phantom
-      const phantomBrowseUrl = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(currentUrl)}`;
-      
-      // Use a small timeout to ensure the browser handles the redirect properly
-      setTimeout(() => {
-        window.location.href = phantomBrowseUrl;
-      }, 100);
-      return;
-    }
-
     try {
-      // Use the official Phantom SDK Modal
-      openPhantomModal();
+      // Use the official Phantom SDK connection method
+      // This handles the deep link flow on mobile (Safari/Chrome -> Phantom -> Safari/Chrome)
+      // and the standard extension connection on desktop.
+      await connectPhantom();
     } catch (error: any) {
       console.error('Wallet connection error:', error);
-      toast.error(error.message || 'Failed to connect wallet');
+      // Don't show toast for user cancellation
+      if (!error.message?.includes('User rejected')) {
+        toast.error(error.message || 'Failed to connect wallet');
+      }
     }
   };
 
