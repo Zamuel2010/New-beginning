@@ -64,8 +64,13 @@ export default function Home() {
       // Redirect to Phantom's in-app browser using a Universal Link
       // This is the most reliable way to "jump" from Safari/Chrome into the Phantom App
       const currentUrl = window.location.href;
+      // Using the browse universal link to open the site inside Phantom
       const phantomBrowseUrl = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(currentUrl)}`;
-      window.location.href = phantomBrowseUrl;
+      
+      // Use a small timeout to ensure the browser handles the redirect properly
+      setTimeout(() => {
+        window.location.href = phantomBrowseUrl;
+      }, 100);
       return;
     }
 
@@ -448,7 +453,7 @@ export default function Home() {
                             className="w-full h-14 bg-[#06080F]/80 border border-white/10 hover:bg-white/5 text-zinc-300 rounded-xl flex items-center justify-center gap-2 transition-all"
                           >
                             <Wallet className="w-5 h-5" />
-                            Connect Wallet
+                            Connect Phantom Wallet
                           </Button>
                         )}
                       </div>
